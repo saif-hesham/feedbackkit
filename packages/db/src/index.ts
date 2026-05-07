@@ -1,0 +1,20 @@
+export { PrismaClient } from '@prisma/client'
+export type {
+  User,
+  Account,
+  Session,
+  Organization,
+  OrgMember,
+  Project,
+  Feedback,
+  Comment,
+  ExternalRef,
+  Integration,
+  Subscription,
+  Plan,
+  Role,
+  FeedbackType,
+  FeedbackStatus,
+  Priority,
+  IntProvider,
+} from '@prisma/client'

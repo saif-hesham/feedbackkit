@@ -1,0 +1,19 @@
+{
+  "name": "@feedbackkit/widget",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "build": "node build.config.mjs",
+    "dev": "node build.config.mjs --watch",
+    "type-check": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "preact": "^10.26.4",
+    "html-to-image": "^1.11.11"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.4",
+    "typescript": "^5.8.3"
+  }
+}

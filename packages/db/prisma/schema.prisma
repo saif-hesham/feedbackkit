@@ -1,0 +1,231 @@
+// generator client {
+//   provider = "prisma-client-js"
+//   output   = "../generated/client"
+// }
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Identity ──────────────────────────────────────────────────────────────
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  passwordHash  String?
+  name          String?
+  emailVerified DateTime?
+  createdAt     DateTime  @default(now())
+
+  memberships OrgMember[]
+  sessions    Session[]
+  accounts    Account[] // OAuth accounts
+  comments    Comment[]
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  provider          String // 'google' | 'github'
+  providerAccountId String
+  accessToken       String? @db.Text
+  refreshToken      String? @db.Text
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ─── Tenancy ───────────────────────────────────────────────────────────────
+
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  plan      Plan     @default(FREE)
+  createdAt DateTime @default(now())
+
+  members      OrgMember[]
+  projects     Project[]
+  subscription Subscription?
+}
+
+model OrgMember {
+  id     String @id @default(cuid())
+  orgId  String
+  userId String
+  role   Role   @default(MEMBER)
+
+  org  Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  user User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, userId])
+}
+
+// ─── Product ───────────────────────────────────────────────────────────────
+
+model Project {
+  id             String   @id @default(cuid())
+  orgId          String
+  name           String
+  publicKey      String   @unique // pk_live_xxx — used by widget
+  allowedOrigins String[] // CORS allowlist
+  themeColor     String? // widget customization
+  captureConsole Boolean  @default(false) // opt-in
+  captureNetwork Boolean  @default(false) // opt-in
+  createdAt      DateTime @default(now())
+
+  org          Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  feedbacks    Feedback[]
+  integrations Integration[]
+}
+
+model Feedback {
+  id       String         @id @default(cuid())
+  projectId String
+  type     FeedbackType
+  status   FeedbackStatus @default(NEW)
+  priority Priority?
+  title    String?
+  body     String         @db.Text
+
+  // Visual
+  screenshotKey String? // R2 object key
+  annotations   Json? // [{type:'rect', x,y,w,h, color}, ...]
+
+  // Page context (auto-captured by widget)
+  pageUrl       String?
+  pageTitle     String?
+  userAgent     String?
+  browser       String?
+  os            String?
+  screenWidth   Int?
+  screenHeight  Int?
+  viewportWidth Int?
+  viewportHeight Int?
+  consoleLogs   Json? // last N console messages
+  networkErrors Json? // failed requests
+
+  // End-user identification (passed by SDK)
+  endUserId       String?
+  endUserEmail    String?
+  endUserName     String?
+  endUserMetadata Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  project      Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  externalRefs ExternalRef[]
+  comments     Comment[]
+
+  @@index([projectId, createdAt])
+  @@index([projectId, status])
+}
+
+model Comment {
+  id         String   @id @default(cuid())
+  feedbackId String
+  userId     String
+  body       String   @db.Text
+  createdAt  DateTime @default(now())
+
+  feedback Feedback @relation(fields: [feedbackId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id])
+}
+
+model ExternalRef {
+  id         String      @id @default(cuid())
+  feedbackId String
+  provider   IntProvider
+  externalId String
+  url        String
+  createdAt  DateTime    @default(now())
+
+  feedback Feedback @relation(fields: [feedbackId], references: [id], onDelete: Cascade)
+}
+
+model Integration {
+  id           String      @id @default(cuid())
+  projectId    String
+  provider     IntProvider
+  config       Json // {channelId, teamId, repoId, ...}
+  accessToken  String      @db.Text // encrypted at rest
+  refreshToken String?     @db.Text
+  expiresAt    DateTime?
+  enabled      Boolean     @default(true)
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, provider])
+}
+
+// ─── Billing ───────────────────────────────────────────────────────────────
+
+model Subscription {
+  id                  String   @id @default(cuid())
+  orgId               String   @unique
+  lemonSubscriptionId String   @unique
+  lemonCustomerId     String
+  status              String // active, past_due, cancelled
+  plan                Plan
+  currentPeriodEnd    DateTime
+  createdAt           DateTime @default(now())
+
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+}
+
+// ─── Enums ─────────────────────────────────────────────────────────────────
+
+enum Plan {
+  FREE
+  STARTER
+  GROWTH
+  PRO
+}
+
+enum Role {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+enum FeedbackType {
+  BUG
+  FEATURE
+  GENERAL
+  PRAISE
+}
+
+enum FeedbackStatus {
+  NEW
+  IN_PROGRESS
+  RESOLVED
+  ARCHIVED
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum IntProvider {
+  LINEAR
+  GITHUB
+  SLACK
+  NOTION
+}
