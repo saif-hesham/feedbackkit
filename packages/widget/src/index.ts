@@ -25,7 +25,12 @@ class FeedbackKitWidget {
     console.warn('[FeedbackKit] open() called — widget UI coming in Week 3')
   }
 
-  identify(_user: { id?: string; email?: string; name?: string; metadata?: Record<string, unknown> }) {
+  identify(_user: {
+    id?: string
+    email?: string
+    name?: string
+    metadata?: Record<string, unknown>
+  }) {
     console.warn('[FeedbackKit] identify() called')
   }
 
